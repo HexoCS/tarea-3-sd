@@ -1,0 +1,25 @@
+{
+  "sequence_number": 5,
+  "event_log": [
+    {
+      "id": 1,
+      "value": "Primer evento del sistema"
+    },
+    {
+      "id": 2,
+      "value": "Primer evento del sistema"
+    },
+    {
+      "id": 3,
+      "value": "Evento A"
+    },
+    {
+      "id": 4,
+      "value": "Evento A"
+    },
+    {
+      "id": 5,
+      "value": "Evento C"
+    }
+  ]
+}
