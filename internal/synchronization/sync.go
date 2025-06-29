@@ -8,24 +8,20 @@ import (
 	"time"
 )
 
-// Synchronizer se encarga de que un nodo obtenga el estado más reciente del primario.
 type Synchronizer struct {
 	node *node.Node
 }
 
-// NewSynchronizer crea una nueva instancia de Synchronizer.
 func NewSynchronizer(n *node.Node) *Synchronizer {
 	return &Synchronizer{node: n}
 }
 
-// FetchStateFromPrimary se ejecuta al arrancar un nodo (después de la elección inicial).
-// Contacta al primario para obtener el estado más reciente.
 func (s *Synchronizer) FetchStateFromPrimary() {
-	// Damos un tiempo prudencial para que la elección de líder se estabilice.
+
 	time.Sleep(5 * time.Second)
 
 	if s.node.IsPrimary {
-		// El primario no necesita sincronizarse, ya que tiene la verdad.
+
 		return
 	}
 
@@ -53,7 +49,6 @@ func (s *Synchronizer) FetchStateFromPrimary() {
 		return
 	}
 
-	// Actualizamos el estado local con la versión del primario.
 	s.node.SetState(stateFromServer)
 	log.Printf("Nodo %d: Sincronización completada. Estado actualizado desde el primario.", s.node.ID)
 }

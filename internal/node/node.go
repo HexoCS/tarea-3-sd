@@ -8,39 +8,33 @@ import (
 	"sync"
 )
 
-// Event representa una entrada individual en el log de eventos replicado.
-// Coincide con la estructura pedida en el enunciado.
 type Event struct {
 	ID    int    `json:"id"`
 	Value string `json:"value"`
 }
 
-// State define la estructura del estado replicado.
-// Ahora incluye un log de eventos además del número de secuencia.
 type State struct {
 	SequenceNumber int     `json:"sequence_number"`
 	EventLog       []Event `json:"event_log"`
 }
 
-// Node representa un servidor en el sistema distribuido.
 type Node struct {
 	ID                 int
 	IsPrimary          bool
 	PrimaryID          int
 	Peers              map[int]string
-	State              State // <-- El estado ahora tiene la nueva estructura
+	State              State
 	mutex              sync.RWMutex
 	logFile            string
 	IsActive           bool
 	electionInProgress bool
 }
 
-// NewNode crea y retorna una nueva instancia de Node.
 func NewNode(id int, peers map[int]string) *Node {
 	n := &Node{
 		ID:    id,
 		Peers: peers,
-		State: State{ // <-- Inicializamos el estado con un log vacío
+		State: State{
 			SequenceNumber: 0,
 			EventLog:       make([]Event, 0),
 		},
@@ -49,7 +43,6 @@ func NewNode(id int, peers map[int]string) *Node {
 		electionInProgress: false,
 	}
 
-	// Lógica de elección inicial (sin cambios)
 	highestID := 0
 	for peerID := range n.Peers {
 		if peerID > highestID {
@@ -65,41 +58,30 @@ func NewNode(id int, peers map[int]string) *Node {
 	return n
 }
 
-// AddEvent es la nueva versión de IncrementSequence.
-// Añade un nuevo evento al log, incrementa el número de secuencia y guarda el estado.
-// Esta función será llamada por el primario.
 func (n *Node) AddEvent(eventValue string) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	// 1. Incrementar el número de secuencia.
 	n.State.SequenceNumber++
 
-	// 2. Crear el nuevo evento.
 	newEvent := Event{
-		ID:    n.State.SequenceNumber, // El ID del evento es el nuevo número de secuencia.
+		ID:    n.State.SequenceNumber,
 		Value: eventValue,
 	}
 
-	// 3. Añadir el evento al log.
 	n.State.EventLog = append(n.State.EventLog, newEvent)
 
 	log.Printf("Nodo %d: Evento añadido (Seq: %d, Valor: '%s'). Estado actualizado.", n.ID, n.State.SequenceNumber, eventValue)
 
-	// 4. Persistir el nuevo estado en el archivo.
 	n.saveStateInternal()
 }
 
-// --- El resto de las funciones no necesitan cambios significativos ---
-
-// GetPrimaryID retorna el ID del primario actual de forma segura.
 func (n *Node) GetPrimaryID() int {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 	return n.PrimaryID
 }
 
-// SetPrimaryID establece el ID del primario de forma segura.
 func (n *Node) SetPrimaryID(primaryID int) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -107,7 +89,6 @@ func (n *Node) SetPrimaryID(primaryID int) {
 	log.Printf("Nodo %d: El nuevo primario reconocido es el Nodo %d.", n.ID, primaryID)
 }
 
-// SetElectionInProgress controla el estado de la elección de forma segura.
 func (n *Node) SetElectionInProgress(status bool) bool {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -123,7 +104,6 @@ func (n *Node) SetElectionInProgress(status bool) bool {
 	return true
 }
 
-// loadState carga el estado del nodo desde su archivo de log JSON.
 func (n *Node) loadState() {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -144,14 +124,12 @@ func (n *Node) loadState() {
 	log.Printf("Nodo %d: Estado cargado desde '%s'. Número de secuencia actual: %d", n.ID, n.logFile, n.State.SequenceNumber)
 }
 
-// saveState guarda el estado actual del nodo en el archivo de log JSON.
 func (n *Node) saveState() {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	n.saveStateInternal()
 }
 
-// saveStateInternal es una versión no bloqueante para ser llamada desde otras funciones que ya tienen el lock.
 func (n *Node) saveStateInternal() {
 	data, err := json.MarshalIndent(n.State, "", "  ")
 	if err != nil {
@@ -163,7 +141,6 @@ func (n *Node) saveStateInternal() {
 	}
 }
 
-// SetPrimary establece si el nodo es primario o no.
 func (n *Node) SetPrimary(isPrimary bool) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -181,6 +158,5 @@ func (n *Node) SetState(newState State) {
 	n.State = newState
 	log.Printf("Nodo %d: Estado sobrescrito por el primario. Nuevo Seq: %d.", n.ID, n.State.SequenceNumber)
 
-	// Persistir el estado recién actualizado.
 	n.saveStateInternal()
 }

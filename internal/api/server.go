@@ -27,22 +27,18 @@ func NewServer(n *node.Node) *Server {
 	return s
 }
 
-// registerHandlers ahora incluye los endpoints para eventos y replicación.
 func (s *Server) registerHandlers() {
 	s.router.HandleFunc("/heartbeat", s.handleHeartbeat)
 	s.router.HandleFunc("/election", s.handleElection)
 	s.router.HandleFunc("/coordinator", s.handleCoordinator)
-	s.router.HandleFunc("/event", s.handleEvent)                   // <-- NUEVO: Para recibir eventos del cliente.
-	s.router.HandleFunc("/state-update", s.handleStateUpdate) // <-- NUEVO: Para recibir actualizaciones del primario.
+	s.router.HandleFunc("/event", s.handleEvent)
+	s.router.HandleFunc("/state-update", s.handleStateUpdate)
 	s.router.HandleFunc("/state", s.handleGetState)
 }
 
-// handleEvent procesa un nuevo evento enviado por un cliente.
-// SOLO el nodo primario debe procesar esta petición.
 func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 	if !s.node.IsPrimary {
-		// Si este nodo no es el primario, rechaza la petición.
-		// En una implementación más avanzada, podría redirigirla al primario.
+
 		http.Error(w, "No soy el nodo primario.", http.StatusServiceUnavailable)
 		return
 	}
@@ -60,20 +56,17 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Nodo Primario %d: Recibido nuevo evento con valor '%s'", s.node.ID, eventValue)
 
-	// 1. Añadir el evento al estado local del primario.
 	s.node.AddEvent(eventValue)
 
-	// 2. Replicar el nuevo estado a todos los secundarios.
 	go s.broadcastStateUpdate()
 
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, "Evento recibido y replicado.")
 }
 
-// handleStateUpdate es usado por los nodos secundarios para recibir el estado actualizado del primario.
 func (s *Server) handleStateUpdate(w http.ResponseWriter, r *http.Request) {
 	if s.node.IsPrimary {
-		// Un primario nunca debería recibir una actualización de estado.
+
 		http.Error(w, "Soy el primario, no puedo recibir actualizaciones de estado.", http.StatusBadRequest)
 		return
 	}
@@ -84,12 +77,10 @@ func (s *Server) handleStateUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sobrescribe el estado local con el estado enviado por el primario.
 	s.node.SetState(newState)
 	w.WriteHeader(http.StatusOK)
 }
 
-// broadcastStateUpdate envía el estado actual del primario a todos los demás nodos.
 func (s *Server) broadcastStateUpdate() {
 	currentState := s.node.State
 	jsonData, err := json.Marshal(currentState)
@@ -100,7 +91,7 @@ func (s *Server) broadcastStateUpdate() {
 
 	for peerID, peerAddress := range s.node.Peers {
 		if peerID == s.node.ID {
-			continue // No nos enviamos la actualización a nosotros mismos.
+			continue
 		}
 
 		go func(id int, addr string) {
@@ -120,9 +111,6 @@ func (s *Server) broadcastStateUpdate() {
 		}(peerID, peerAddress)
 	}
 }
-
-
-// --- Handlers de elección y monitoreo (sin cambios) ---
 
 func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Nodo %d: Heartbeat recibido", s.node.ID)
@@ -156,7 +144,7 @@ func (s *Server) Start() {
 	if err := http.ListenAndServe(address, s.router); err != nil {
 		log.Fatalf("Nodo %d: El servidor falló al iniciar: %v", s.node.ID, err)
 	}
-}	
+}
 
 func (s *Server) handleGetState(w http.ResponseWriter, r *http.Request) {
 	if !s.node.IsPrimary {
@@ -164,7 +152,6 @@ func (s *Server) handleGetState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Codifica el estado actual del nodo a JSON.
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(s.node.State); err != nil {
 		log.Printf("Nodo Primario %d: Error al codificar estado para enviar: %v", s.node.ID, err)
