@@ -1,8 +1,4 @@
 #!/bin/bash
-
-
-
-
 SERVER_DIR="../cmd/server"
 
 PID_DIR="./pids"
